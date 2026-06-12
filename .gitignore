@@ -1,0 +1,24 @@
+# Dependencies
+/vendor/
+composer.lock
+/.claude
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+cache/
+

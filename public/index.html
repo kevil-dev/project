@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory</title>
+    <link rel="stylesheet" href="https://unpkg.com/papercss/dist/paper.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="paper container">
+
+    <h2>Inventory</h2>
+
+    <!-- Filter bar — visual only, wiring comes later -->
+    <div class="filter-bar">
+        <input  type="text" id="search-input"     placeholder="Search products…">
+        <select id="category-select"><option value="">All Categories</option></select>
+        <select id="unit-select"    ><option value="">All Units</option></select>
+        <button class="btn-secondary">Clear</button>
+        <button class="btn-primary" >Add Product</button>
+    </div>
+
+    <!-- Only this div scrolls — the page itself stays fixed -->
+    <div id="product-list">
+        <p id="grid-message">Loading products…</p>
+    </div>
+
+</div>
+
+<!-- ?v=3 forces the browser to fetch a fresh copy even if it cached an old one -->
+<script src="script.js?v=4"></script>
+</body>
+</html>
