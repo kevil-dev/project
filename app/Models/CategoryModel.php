@@ -4,9 +4,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Database;
-use App\Entities\Category;
 
-// CategoryModel handles all database queries for the categories table.
 class CategoryModel
 {
     private Database $db;
@@ -15,21 +13,10 @@ class CategoryModel
     {
         $this->db = $db;
     }
-
-    // Returns every category as an array of Category entities.
-    // Returns: Category[]
     public function getAll(): array
     {
-        $rows = $this->db->query('SELECT id, name FROM categories');
-
-        $categories = [];
-        foreach ($rows as $row) {
-            $category       = new Category();
-            $category->id   = (int)    $row['id'];
-            $category->name = (string) $row['name'];
-            $categories[]   = $category;
-        }
-
-        return $categories;
+        return $this->db->query(
+            'SELECT id, name FROM categories WHERE is_active = 1 ORDER BY name ASC'
+        );
     }
 }

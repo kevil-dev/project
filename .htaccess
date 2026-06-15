@@ -1,11 +1,9 @@
-# Root .htaccess — transparently rewrites requests into public/
-# Use this when Apache's DocumentRoot points at the project root instead of public/.
 RewriteEngine On
 
 # Requests that already target public/ pass through unchanged.
 RewriteRule ^public/ - [L]
 
-# Everything else (that isn't an existing file/dir) is pushed into public/.
+# Everything else gets pushed into public/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ public/$1 [L,QSA]

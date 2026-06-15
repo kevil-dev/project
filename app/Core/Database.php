@@ -3,15 +3,18 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use mysqli;
+use mysqli_result;
+
 class Database
 {
-    private \mysqli $connection;
+    private mysqli $connection;
 
     public function __construct(string $host, string $username, string $password, string $database)
     {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-        $this->connection = new \mysqli($host, $username, $password, $database);
+        $this->connection = new mysqli($host, $username, $password, $database);
         $this->connection->set_charset('utf8mb4');
     }
 
@@ -19,7 +22,7 @@ class Database
     {
         $result = $this->connection->execute_query($sql, $params);
 
-        if ($result instanceof \mysqli_result) {
+        if ($result instanceof mysqli_result) {
             return $result->fetch_all(MYSQLI_ASSOC);
         }
 
