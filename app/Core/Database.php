@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Core;
@@ -39,5 +40,20 @@ class Database
     public function lastInsertId(): int
     {
         return (int) $this->connection->insert_id;
+    }
+
+    public function beginTransaction(): void
+    {
+        $this->connection->begin_transaction();
+    }
+
+    public function commit(): void
+    {
+        $this->connection->commit();
+    }
+
+    public function rollback(): void
+    {
+        $this->connection->rollback();
     }
 }
