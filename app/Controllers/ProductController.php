@@ -121,7 +121,7 @@ class ProductController
             'image/jpeg' => 'jpg',
             'image/png'  => 'png',
             'image/webp' => 'webp',
-            default      => 'jpg',
+            default      => throw new \RuntimeException('Unexpected MIME type after validation'),
         };
 
         $filename  = uniqid('product_', true) . '.' . $extension;
@@ -201,7 +201,7 @@ class ProductController
                 'image/jpeg' => 'jpg',
                 'image/png'  => 'png',
                 'image/webp' => 'webp',
-                default      => 'jpg',
+                default      => throw new \RuntimeException('Unexpected MIME type after validation'),
             };
 
             $filename  = uniqid('product_', true) . '.' . $extension;
