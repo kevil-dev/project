@@ -86,4 +86,201 @@ class ProductController
         $response->json(['message' => 'Product deactivated successfully']);
         return $response;
     }
+    public function store(Request $request, array $params): Response
+    {
+        $name       = trim($request->post('name'));
+        $price      = trim($request->post('price'));
+        $categoryId = trim($request->post('category_id'));
+        $unitId     = trim($request->post('unit_id'));
+        $stock      = trim($request->post('stock'));
+        $image      = $request->file('image');
+
+        // Validate
+        $validator = new \App\Core\Validator();
+        $validator->required('name', $name);
+        $validator->maxLength('name', $name, 150);
+        $validator->required('price', $price);
+        $validator->positiveNumber('price', $price);
+        $validator->required('category_id', $categoryId);
+        $validator->positiveInteger('category_id', $categoryId);
+        $validator->required('unit_id', $unitId);
+        $validator->positiveInteger('unit_id', $unitId);
+        $validator->required('stock', $stock);
+        $validator->positiveInteger('stock', $stock);
+        $validator->image('image', $image);
+
+        if ($validator->hasErrors()) {
+            $response = new Response();
+            $response->setStatus(422);
+            $response->json(['errors' => $validator->getErrors()]);
+            return $response;
+        }
+
+        // Handle image upload
+        $extension = match (mime_content_type($image['tmp_name'])) {
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            default      => 'jpg',
+        };
+
+        $filename  = uniqid('product_', true) . '.' . $extension;
+        $uploadDir = ROOT_PATH . '/public/uploads/products/';
+        $imagePath = '/uploads/products/' . $filename;
+
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        move_uploaded_file($image['tmp_name'], $uploadDir . $filename);
+
+        // Save to database
+        $productId = $this->productModel->create(
+            $name,
+            (float) $price,
+            (int) $categoryId,
+            (int) $unitId,
+            $imagePath,
+            (int) $stock
+        );
+
+        $response = new Response();
+        $response->setStatus(201);
+        $response->json([
+            'message' => 'Product created successfully',
+            'id'      => $productId,
+        ]);
+
+        return $response;
+    }
+    public function update(Request $request, array $params): Response
+    {
+        $id         = (int) $params['id'];
+        $name       = trim($request->post('name'));
+        $price      = trim($request->post('price'));
+        $categoryId = trim($request->post('category_id'));
+        $unitId     = trim($request->post('unit_id'));
+        $image      = $request->file('image');
+
+
+        $validator = new \App\Core\Validator();
+        $validator->required('name', $name);
+        $validator->maxLength('name', $name, 150);
+        $validator->required('price', $price);
+        $validator->positiveNumber('price', $price);
+        $validator->required('category_id', $categoryId);
+        $validator->positiveInteger('category_id', $categoryId);
+        $validator->required('unit_id', $unitId);
+        $validator->positiveInteger('unit_id', $unitId);
+
+        if ($image['error'] !== UPLOAD_ERR_NO_FILE) {
+            $validator->image('image', $image);
+        }
+
+        if ($validator->hasErrors()) {
+            $response = new Response();
+            $response->setStatus(422);
+            $response->json(['errors' => $validator->getErrors()]);
+            return $response;
+        }
+
+        $currentImagePath = $this->productModel->getImagePath($id);
+
+        if ($currentImagePath === null) {
+            $response = new Response();
+            $response->setStatus(404);
+            $response->json(['error' => 'Product not found']);
+            return $response;
+        }
+
+
+        $newImagePath = null;
+
+        if ($image['error'] === UPLOAD_ERR_OK) {
+            $extension = match (mime_content_type($image['tmp_name'])) {
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/webp' => 'webp',
+                default      => 'jpg',
+            };
+
+            $filename  = uniqid('product_', true) . '.' . $extension;
+            $uploadDir = ROOT_PATH . '/public/uploads/products/';
+            $newImagePath = '/uploads/products/' . $filename;
+
+            move_uploaded_file($image['tmp_name'], $uploadDir . $filename);
+
+            $oldFilePath = ROOT_PATH . '/public' . $currentImagePath;
+            if (file_exists($oldFilePath)) {
+                unlink($oldFilePath);
+            }
+        }
+
+        $updated = $this->productModel->update(
+            $id,
+            $name,
+            (float) $price,
+            (int) $categoryId,
+            (int) $unitId,
+            $newImagePath
+        );
+
+        $response = new Response();
+        $response->json(['message' => 'Product updated successfully']);
+        return $response;
+    }
+    public function stock(Request $request, array $params): Response
+{
+    $id   = (int) $params['id'];
+    $body = $request->json();
+
+    $quantity = $body['quantity'] ?? null;
+    $type     = isset($body['type']) ? trim($body['type']) : '';
+    $reason   = isset($body['reason']) ? trim($body['reason']) : '';
+
+    // Validate
+    $validator = new \App\Core\Validator();
+    $validator->nonZeroInteger('quantity', $quantity);
+    $validator->required('type', $type);
+    $validator->stockType('type', $type);
+
+    if ($validator->hasErrors()) {
+        $response = new Response();
+        $response->setStatus(422);
+        $response->json(['errors' => $validator->getErrors()]);
+        return $response;
+    }
+
+    // Check product exists
+    $currentImagePath = $this->productModel->getImagePath($id);
+
+    if ($currentImagePath === null) {
+        $response = new Response();
+        $response->setStatus(404);
+        $response->json(['error' => 'Product not found']);
+        return $response;
+    }
+
+    // Check stock won't go negative
+    if ($quantity < 0) {
+        $currentStock = $this->productModel->getStock($id);
+
+        if ($currentStock + $quantity < 0) {
+            $response = new Response();
+            $response->setStatus(422);
+            $response->json([
+                'errors' => [
+                    'quantity' => 'Insufficient stock. Current stock is ' . $currentStock
+                ]
+            ]);
+            return $response;
+        }
+    }
+
+    $this->productModel->addTransaction($id, $quantity, $type, $reason);
+
+    $response = new Response();
+    $response->json(['message' => 'Stock updated successfully']);
+    return $response;
+}
 }

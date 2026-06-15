@@ -136,4 +136,81 @@ class ProductModel
 
         return $affected > 0;
     }
+
+    public function create(string $name, float $price, int $categoryId, int $unitId, string $imagePath, int $initialStock): int
+    {
+        $this->db->beginTransaction();
+
+        try {
+            $this->db->execute(
+                'INSERT INTO products (name, price, category_id, unit_id, image_path)
+             VALUES (?, ?, ?, ?, ?)',
+                [$name, $price, $categoryId, $unitId, $imagePath]
+            );
+
+            $productId = $this->db->lastInsertId();
+
+            $this->db->execute(
+                'INSERT INTO inventory_transactions (product_id, quantity, transaction_type, reason)
+             VALUES (?, ?, ?, ?)',
+                [$productId, $initialStock, 'restock', 'Initial stock']
+            );
+
+            $this->db->commit();
+
+            return $productId;
+        } catch (\Throwable $e) {
+            $this->db->rollback();
+            throw $e;
+        }
+    }
+    public function update(int $id, string $name, float $price, int $categoryId, int $unitId, ?string $imagePath): bool
+    {
+        if ($imagePath !== null) {
+            $affected = $this->db->execute(
+                'UPDATE products
+             SET name = ?, price = ?, category_id = ?, unit_id = ?, image_path = ?
+             WHERE id = ? AND is_active = 1',
+                [$name, $price, $categoryId, $unitId, $imagePath, $id]
+            );
+        } else {
+            $affected = $this->db->execute(
+                'UPDATE products
+             SET name = ?, price = ?, category_id = ?, unit_id = ?
+             WHERE id = ? AND is_active = 1',
+                [$name, $price, $categoryId, $unitId, $id]
+            );
+        }
+
+        return $affected > 0;
+    }
+    public function getImagePath(int $id): ?string
+    {
+        $rows = $this->db->query(
+            'SELECT image_path FROM products WHERE id = ? AND is_active = 1',
+            [$id]
+        );
+
+        return empty($rows) ? null : $rows[0]['image_path'];
+    }
+    public function getStock(int $id): int
+{
+    $rows = $this->db->query(
+        'SELECT COALESCE(SUM(quantity), 0) AS stock
+         FROM inventory_transactions
+         WHERE product_id = ?',
+        [$id]
+    );
+
+    return (int) $rows[0]['stock'];
+}
+
+public function addTransaction(int $productId, int $quantity, string $type, string $reason): void
+{
+    $this->db->execute(
+        'INSERT INTO inventory_transactions (product_id, quantity, transaction_type, reason)
+         VALUES (?, ?, ?, ?)',
+        [$productId, $quantity, $type, $reason]
+    );
+}
 }
