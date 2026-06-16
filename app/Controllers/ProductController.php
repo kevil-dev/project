@@ -1,6 +1,11 @@
 <?php
 
 declare(strict_types=1);
+// API response shapes:
+// - Success with a resource:  { "data": {...} }
+// - Success with just action: { "message": "..." }
+// - Any error:                { "errors": { "field": "message", ... } }
+// - Non-field errors use the key "general".
 
 namespace App\Controllers;
 
@@ -28,8 +33,10 @@ class ProductController
         $response = new Response();
 
         $response->json([
-            'categories' => $this->categoryModel->getAll(),
-            'units'      => $this->unitModel->getAll(),
+            'data' => [
+                'categories' => $this->categoryModel->getAll(),
+                'units'      => $this->unitModel->getAll(),
+            ],
         ]);
 
         return $response;
@@ -64,7 +71,7 @@ class ProductController
 
         if ($product === null) {
             $response->setStatus(404);
-            $response->json(['error' => 'Product not found']);
+            $response->json(['errors' => ['general' => 'Product not found']]);
             return $response;
         }
 
@@ -79,7 +86,7 @@ class ProductController
 
         if (!$deleted) {
             $response->setStatus(404);
-            $response->json(['error' => 'Product not found']);
+            $response->json(['errors' => ['general' => 'Product not found']]);
             return $response;
         }
 
@@ -148,7 +155,7 @@ class ProductController
         $response->setStatus(201);
         $response->json([
             'message' => 'Product created successfully',
-            'id'      => $productId,
+            'data'    => ['id' => $productId],
         ]);
 
         return $response;
@@ -189,7 +196,7 @@ class ProductController
         if ($currentImagePath === null) {
             $response = new Response();
             $response->setStatus(404);
-            $response->json(['error' => 'Product not found']);
+            $response->json(['errors' => ['general' => 'Product not found']]);
             return $response;
         }
 
@@ -257,11 +264,13 @@ class ProductController
     if ($currentImagePath === null) {
         $response = new Response();
         $response->setStatus(404);
-        $response->json(['error' => 'Product not found']);
+        $response->json(['errors' => ['general' => 'Product not found']]);
         return $response;
     }
 
     // Check stock won't go negative
+
+    // note: not safe if multiple admins edit the same product at once, but good enough for this simple app
     if ($quantity < 0) {
         $currentStock = $this->productModel->getStock($id);
 
