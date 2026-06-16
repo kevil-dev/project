@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Core;
@@ -14,34 +15,35 @@ class Router
         $this->db = $db;
     }
 
-    public function add(string $method, string $path, string $controller, string $action): void
+    public function add(string $method, string $path, string $controller, string $action, bool $protected = false): void
     {
         $this->routes[] = [
             'method'     => strtoupper($method),
             'path'       => $path,
             'controller' => $controller,
             'action'     => $action,
+            'protected'  => $protected
         ];
     }
 
-    public function get(string $path, string $controller, string $action): void
+    public function get(string $path, string $controller, string $action, bool $protected = false): void
     {
-        $this->add('GET', $path, $controller, $action);
+        $this->add('GET', $path, $controller, $action, $protected);
     }
 
-    public function post(string $path, string $controller, string $action): void
+    public function post(string $path, string $controller, string $action, bool $protected = false): void
     {
-        $this->add('POST', $path, $controller, $action);
+        $this->add('POST', $path, $controller, $action, $protected);
     }
 
-    public function put(string $path, string $controller, string $action): void
+    public function put(string $path, string $controller, string $action, bool $protected = false): void
     {
-        $this->add('PUT', $path, $controller, $action);
+        $this->add('PUT', $path, $controller, $action, $protected);
     }
 
-    public function delete(string $path, string $controller, string $action): void
+    public function delete(string $path, string $controller, string $action, bool $protected = false): void
     {
-        $this->add('DELETE', $path, $controller, $action);
+        $this->add('DELETE', $path, $controller, $action, $protected);
     }
 
     public function dispatch(Request $request): Response
@@ -58,6 +60,12 @@ class Router
             if (!$this->matchPath($route['path'], $path, $params)) {
                 continue;
             }
+            if ($route['protected'] && Auth::check($request) === null) {
+                $response = new Response();
+                $response->setStatus(401);
+                $response->json(['errors' => ['general' => 'Authentication required']]);
+                return $response;
+            }
 
             $controller = new $route['controller']($this->db);
             return $controller->{$route['action']}($request, $params);
@@ -65,7 +73,7 @@ class Router
 
         $response = new Response();
         $response->setStatus(404);
-        $response->json(['error' => 'Not Found']);
+        $response->json(['errors' => ['general' => 'Not Found']]);
         return $response;
     }
 

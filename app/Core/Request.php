@@ -80,4 +80,15 @@ class Request
 
         return $_FILES[$key];
     }
+
+    public function bearerToken(): ?string
+    {
+        $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+
+        if(preg_match('/Bearer\s(\S+)/', $header, $matches)) {
+            return $matches[1];
+
+        }
+        return null;
+    }
 }

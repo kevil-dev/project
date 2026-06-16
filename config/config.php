@@ -19,5 +19,9 @@ return [
     'paths' => [
         'logs' => dirname(__DIR__) . '/storage/logs',
     ],
+    "jwt" => [
+        'secret' => 'a293327c4ad54baf47279e8446f0d032ead1d6b88bd9e270dc8b908e278eb8d1',
+        'ttl' => 3600
+    ]
 
 ];

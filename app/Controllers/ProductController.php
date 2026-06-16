@@ -142,14 +142,21 @@ class ProductController
         move_uploaded_file($image['tmp_name'], $uploadDir . $filename);
 
         // Save to database
-        $productId = $this->productModel->create(
-            $name,
-            (float) $price,
-            (int) $categoryId,
-            (int) $unitId,
-            $imagePath,
-            (int) $stock
-        );
+        try {
+            $productId = $this->productModel->create(
+                $name,
+                (float) $price,
+                (int) $categoryId,
+                (int) $unitId,
+                $imagePath,
+                (int) $stock
+            );
+        } catch (\Throwable $e) {
+            if (file_exists($uploadDir . $filename)) {
+                unlink($uploadDir . $filename);
+            }
+            throw $e;
+        }
 
         $response = new Response();
         $response->setStatus(201);
@@ -202,6 +209,8 @@ class ProductController
 
 
         $newImagePath = null;
+        $newFilename  = null;
+        $uploadDir    = ROOT_PATH . '/public/uploads/products/';
 
         if ($image['error'] === UPLOAD_ERR_OK) {
             $extension = match (mime_content_type($image['tmp_name'])) {
@@ -211,85 +220,93 @@ class ProductController
                 default      => throw new \RuntimeException('Unexpected MIME type after validation'),
             };
 
-            $filename  = uniqid('product_', true) . '.' . $extension;
-            $uploadDir = ROOT_PATH . '/public/uploads/products/';
-            $newImagePath = '/uploads/products/' . $filename;
+            $newFilename  = uniqid('product_', true) . '.' . $extension;
+            $newImagePath = '/uploads/products/' . $newFilename;
 
-            move_uploaded_file($image['tmp_name'], $uploadDir . $filename);
+            move_uploaded_file($image['tmp_name'], $uploadDir . $newFilename);
+        }
 
+        try {
+            $this->productModel->update(
+                $id,
+                $name,
+                (float) $price,
+                (int) $categoryId,
+                (int) $unitId,
+                $newImagePath
+            );
+        } catch (\Throwable $e) {
+            if ($newFilename !== null && file_exists($uploadDir . $newFilename)) {
+                unlink($uploadDir . $newFilename);
+            }
+            throw $e;
+        }
+
+        if ($newImagePath !== null) {
             $oldFilePath = ROOT_PATH . '/public' . $currentImagePath;
             if (file_exists($oldFilePath)) {
                 unlink($oldFilePath);
             }
         }
 
-        $updated = $this->productModel->update(
-            $id,
-            $name,
-            (float) $price,
-            (int) $categoryId,
-            (int) $unitId,
-            $newImagePath
-        );
-
         $response = new Response();
         $response->json(['message' => 'Product updated successfully']);
         return $response;
     }
     public function stock(Request $request, array $params): Response
-{
-    $id   = (int) $params['id'];
-    $body = $request->json();
+    {
+        $id   = (int) $params['id'];
+        $body = $request->json();
 
-    $quantity = $body['quantity'] ?? null;
-    $type     = isset($body['type']) ? trim($body['type']) : '';
-    $reason   = isset($body['reason']) ? trim($body['reason']) : '';
+        $quantity = $body['quantity'] ?? null;
+        $type     = isset($body['type']) ? trim($body['type']) : '';
+        $reason   = isset($body['reason']) ? trim($body['reason']) : '';
 
-    // Validate
-    $validator = new \App\Core\Validator();
-    $validator->nonZeroInteger('quantity', $quantity);
-    $validator->required('type', $type);
-    $validator->stockType('type', $type);
+        // Validate
+        $validator = new \App\Core\Validator();
+        $validator->nonZeroInteger('quantity', $quantity);
+        $validator->required('type', $type);
+        $validator->stockType('type', $type);
 
-    if ($validator->hasErrors()) {
-        $response = new Response();
-        $response->setStatus(422);
-        $response->json(['errors' => $validator->getErrors()]);
-        return $response;
-    }
-
-    // Check product exists
-    $currentImagePath = $this->productModel->getImagePath($id);
-
-    if ($currentImagePath === null) {
-        $response = new Response();
-        $response->setStatus(404);
-        $response->json(['errors' => ['general' => 'Product not found']]);
-        return $response;
-    }
-
-    // Check stock won't go negative
-
-    // note: not safe if multiple admins edit the same product at once, but good enough for this simple app
-    if ($quantity < 0) {
-        $currentStock = $this->productModel->getStock($id);
-
-        if ($currentStock + $quantity < 0) {
+        if ($validator->hasErrors()) {
             $response = new Response();
             $response->setStatus(422);
-            $response->json([
-                'errors' => [
-                    'quantity' => 'Insufficient stock. Current stock is ' . $currentStock
-                ]
-            ]);
+            $response->json(['errors' => $validator->getErrors()]);
             return $response;
         }
+
+        // Check product exists
+        $currentImagePath = $this->productModel->getImagePath($id);
+
+        if ($currentImagePath === null) {
+            $response = new Response();
+            $response->setStatus(404);
+            $response->json(['errors' => ['general' => 'Product not found']]);
+            return $response;
+        }
+
+        // Check stock won't go negative
+
+        // note: not safe if multiple admins edit the same product at once, but good enough for this simple app
+        if ($quantity < 0) {
+            $currentStock = $this->productModel->getStock($id);
+
+            if ($currentStock + $quantity < 0) {
+                $response = new Response();
+                $response->setStatus(422);
+                $response->json([
+                    'errors' => [
+                        'quantity' => 'Insufficient stock. Current stock is ' . $currentStock
+                    ]
+                ]);
+                return $response;
+            }
+        }
+
+        $this->productModel->addTransaction($id, $quantity, $type, $reason);
+
+        $response = new Response();
+        $response->json(['message' => 'Stock updated successfully']);
+        return $response;
     }
-
-    $this->productModel->addTransaction($id, $quantity, $type, $reason);
-
-    $response = new Response();
-    $response->json(['message' => 'Stock updated successfully']);
-    return $response;
-}
 }

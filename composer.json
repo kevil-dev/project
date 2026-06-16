@@ -3,7 +3,8 @@
     "description": "Minimal PHP 8.4 MVC skeleton — no framework dependencies",
     "type": "project",
     "require": {
-        "php": "^8.3"
+        "php": "^8.3",
+        "firebase/php-jwt": "^7.1"
     },
     "autoload": {
         "psr-4": {
